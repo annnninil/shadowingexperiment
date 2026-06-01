@@ -3,28 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <title>Shadowing Experiment</title>
-<script src="https://unpkg.com/jspsych@7.3.4/jspsych.js"></script>
-<script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3/dist/index.browser.min.js"></script>
-<script src="https://unpkg.com/@jspsych/plugin-audio-keyboard-response@1.1.3/dist/index.browser.min.js"></script>
-<script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.3/dist/index.browser.min.js"></script>
-<script src="https://unpkg.com/@jspsych/plugin-survey-text@1.1.3/dist/index.browser.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
+<script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.4/dist/jspsych.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-keyboard-response@1.1.3/dist/index.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-html-button-response@1.1.3/dist/index.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@jspsych/plugin-survey-text@1.1.3/dist/index.browser.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspsych@7.3.4/css/jspsych.css">
 <style>
-  body { background: #1a1a2e; color: #eee; font-family: 'Arial', sans-serif; }
+  body { background: #1a1a2e; color: #eee; font-family: Arial, sans-serif; }
   .jspsych-content { max-width: 800px; }
   .jspsych-btn { background: #4a90d9; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 8px; }
   .jspsych-btn:hover { background: #357abd; }
-  .recording-indicator { color: #ff6b6b; font-size: 14px; margin-top: 10px; }
   .lang-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; margin-bottom: 12px; }
   .eng { background: #2d6a9f; }
   .mand { background: #9f2d2d; }
+  .rec { color: #ff6b6b; font-size: 14px; margin-top: 10px; }
 </style>
 </head>
 <body>
 <script>
 
-// ─── TRIAL LIST ───────────────────────────────────────────────
-// Audio files must be in a stimuli/ folder in the same GitHub repo
 const trials = [
   {file:"stimuli/eng_p1_1_0x.wav", language:"English", passage:"p1", speed:"1x"},
   {file:"stimuli/eng_p1_1_5x.wav", language:"English", passage:"p1", speed:"1.5x"},
@@ -41,178 +38,139 @@ const trials = [
 ];
 
 // shuffle
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+for (let i = trials.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [trials[i], trials[j]] = [trials[j], trials[i]];
 }
-shuffle(trials);
 
-// ─── RECORDING HELPERS ────────────────────────────────────────
 let mediaRecorder, audioChunks = [], recordings = [];
 
-async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+async function startRec() {
+  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
   audioChunks = [];
   mediaRecorder = new MediaRecorder(stream);
   mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.start();
 }
 
-function stopRecording() {
+function stopRec() {
   return new Promise(resolve => {
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/wav' });
-      resolve(blob);
-    };
+    mediaRecorder.onstop = () => resolve(new Blob(audioChunks, {type:'audio/wav'}));
     mediaRecorder.stop();
     mediaRecorder.stream.getTracks().forEach(t => t.stop());
   });
 }
 
-function blobToBase64(blob) {
+function toBase64(blob) {
   return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
+    const r = new FileReader();
+    r.onloadend = () => resolve(r.result);
+    r.readAsDataURL(blob);
   });
 }
 
-// ─── jsPsych INIT ─────────────────────────────────────────────
 const jsPsych = initJsPsych({
   on_finish: function() {
-    // Download all recordings as JSON
-    const data = {
-      participant: jsPsych.data.get().values()[0]?.participant || 'unknown',
-      trials: recordings
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
+    const participant = jsPsych.data.get().values()[0]?.participant || 'unknown';
+    const blob = new Blob([JSON.stringify({participant, trials: recordings}, null, 2)], {type:'application/json'});
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `shadowing_${data.participant}_${Date.now()}.json`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `shadowing_${participant}_${Date.now()}.json`;
     a.click();
-    document.body.innerHTML = '<div style="text-align:center;padding:80px;font-size:20px">謝謝您的參與！Thank you!<br><br>Your data has been downloaded.</div>';
+    document.body.innerHTML = '<div style="text-align:center;padding:80px;font-size:20px">謝謝您的參與！Thank you!<br><br>Data downloaded.</div>';
   }
 });
 
-// ─── TIMELINE ─────────────────────────────────────────────────
 const timeline = [];
 
-// 1. Welcome
 timeline.push({
   type: jsPsychHtmlButtonResponse,
   stimulus: `
-    <h2>Shadowing Experiment</h2>
+    <h2>Shadowing Experiment / 跟讀實驗</h2>
     <p>You will hear passages in <b>English</b> and <b>Mandarin</b> at different speeds.</p>
-    <p>Please <b>repeat aloud what you hear as you hear it</b> (simultaneously).</p>
-    <p>您將聽到英文和普通話的段落。<br>請在聽到的同時，立即大聲重複您所聽到的內容。</p>
-    <p style="color:#aaa;font-size:13px">Your microphone will be used to record your responses.<br>Please allow microphone access when prompted.</p>
+    <p>Please <b>repeat aloud what you hear as you hear it</b> (simultaneously / 同步跟讀).</p>
+    <p>您將聽到英文和普通話的段落，請在聽到的同時立即大聲重複。</p>
+    <p style="color:#aaa;font-size:13px">Please allow microphone access when prompted.<br>請允許麥克風權限。</p>
   `,
   choices: ['Begin / 開始'],
 });
 
-// 2. Background info
 timeline.push({
   type: jsPsychSurveyText,
   questions: [
-    {prompt: 'Participant ID (your initials + birth month, e.g. AL03)', name: 'participant', required: true},
-    {prompt: 'L1 (first language)', name: 'L1', required: true},
-    {prompt: 'Years studying English', name: 'years_eng', required: true},
-    {prompt: 'Self-rated English listening (1=beginner, 7=native-like)', name: 'eng_prof', required: true},
+    {prompt:'Participant ID (initials + birth month, e.g. AL03)', name:'participant', required:true},
+    {prompt:'L1 (first language / 母語)', name:'L1', required:true},
+    {prompt:'Years studying English / 學英文幾年', name:'years_eng', required:true},
+    {prompt:'English listening (1=beginner, 7=native) / 英文聽力自評', name:'eng_prof', required:true},
   ],
   on_finish: function(data) {
     jsPsych.data.addProperties({participant: data.response.participant});
   }
 });
 
-// 3. Microphone permission
+// mic permission test
 timeline.push({
   type: jsPsychHtmlButtonResponse,
-  stimulus: `<p>Click <b>Allow Microphone</b> to enable recording.</p>
-             <p>點擊下方按鈕，允許麥克風錄音。</p>`,
-  choices: ['Allow Microphone / 允許錄音'],
+  stimulus: `<p>Click to enable microphone recording.<br>點擊啟用麥克風錄音。</p>`,
+  choices: ['Enable Microphone / 啟用麥克風'],
   on_finish: async function() {
-    await startRecording();
-    await stopRecording(); // quick test to trigger permission
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({audio:true});
+      s.getTracks().forEach(t => t.stop());
+    } catch(e) { alert('Microphone access denied. Please allow microphone and refresh.'); }
   }
 });
 
-// 4. Practice trial
-timeline.push({
-  type: jsPsychHtmlButtonResponse,
-  stimulus: `<h3>Practice Trial / 練習</h3>
-             <p>You will now hear a short example. Please shadow (repeat aloud) as you hear it.</p>
-             <p>現在您將聽到一個範例，請同步跟讀。</p>`,
-  choices: ['Start Practice / 開始練習'],
-});
-
-// 5. Experimental trials
 for (let i = 0; i < trials.length; i++) {
   const t = trials[i];
-  const langClass = t.language === 'English' ? 'eng' : 'mand';
+  const cls = t.language === 'English' ? 'eng' : 'mand';
 
-  // Ready screen
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <p>Trial ${i+1} of ${trials.length}</p>
-      <span class="lang-tag ${langClass}">${t.language} — ${t.speed}</span>
-      <p>Ready? Press <b>SPACE</b> to hear the passage and start recording.</p>
-      <p>準備好了嗎？按<b>空白鍵</b>開始。</p>
+      <p>Trial ${i+1} / ${trials.length}</p>
+      <span class="lang-tag ${cls}">${t.language} — ${t.speed}</span>
+      <p>Ready? Press <b>SPACE</b> to begin.</p>
+      <p>準備好了嗎？按<b>空白鍵</b>開始跟讀。</p>
     `,
     choices: [' '],
   });
 
-  // Audio + recording trial
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <span class="lang-tag ${langClass}">${t.language} — ${t.speed}</span>
+      <span class="lang-tag ${cls}">${t.language} — ${t.speed}</span>
       <p>🎙 Recording... Please shadow the audio.</p>
-      <p class="recording-indicator">● 錄音中，請跟讀...</p>
+      <p class="rec">● 錄音中，請跟讀...</p>
     `,
     choices: "NO_KEYS",
     trial_duration: null,
     on_start: async function() {
-      await startRecording();
-      // play audio
+      await startRec();
       const audio = new Audio(t.file);
       audio.play();
       audio.onended = async function() {
-        // wait 3 extra seconds after audio ends
         setTimeout(async function() {
-          const blob = await stopRecording();
-          const b64 = await blobToBase64(blob);
-          recordings.push({
-            trial: i+1,
-            language: t.language,
-            passage: t.passage,
-            speed: t.speed,
-            audio_data: b64
-          });
+          const blob = await stopRec();
+          const b64 = await toBase64(blob);
+          recordings.push({trial:i+1, language:t.language, passage:t.passage, speed:t.speed, audio:b64});
           jsPsych.finishTrial();
         }, 3000);
       };
     },
   });
 
-  // Brief pause between trials
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: '<p style="color:#aaa">✓ Recorded</p>',
+    stimulus: '<p style="color:#6fcf97">✓ Recorded</p>',
     choices: "NO_KEYS",
     trial_duration: 800,
   });
 }
 
-// 6. End
 timeline.push({
   type: jsPsychHtmlButtonResponse,
-  stimulus: `<h2>Thank you! / 謝謝！</h2>
-             <p>Click below to download your data.</p>`,
+  stimulus: `<h2>Thank you! / 謝謝！</h2><p>Click to download your data.</p>`,
   choices: ['Download Data / 下載數據'],
 });
 
