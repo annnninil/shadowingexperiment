@@ -15,7 +15,7 @@ p { font-size: 15px; line-height: 1.7; margin-bottom: 12px; color: #ccc; }
 .eng { background: #2d6a9f; } .mand { background: #9f2d2d; }
 .rec { color: #ff6b6b; font-size: 16px; margin-top: 12px; }
 .green { color: #6fcf97; font-size: 18px; }
-input, select { background: #2a2a4a; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 8px 12px; font-size: 14px; width: 100%; margin: 6px 0 14px; }
+input { background: #2a2a4a; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 8px 12px; font-size: 14px; width: 100%; margin: 6px 0 14px; }
 label { display: block; text-align: left; font-size: 13px; color: #aaa; margin-top: 8px; }
 .progress { color: #888; font-size: 13px; margin-bottom: 8px; }
 </style>
@@ -23,7 +23,6 @@ label { display: block; text-align: left; font-size: 13px; color: #aaa; margin-t
 <body>
 <div class="container" id="app"></div>
 <script>
-const app = document.getElementById('app');
 const trialList = [
   {file:"stimuli/eng_p1_1_0x.wav",language:"English",passage:"p1",speed:"1x"},
   {file:"stimuli/eng_p1_1_5x.wav",language:"English",passage:"p1",speed:"1.5x"},
@@ -40,164 +39,108 @@ const trialList = [
 ];
 for(let i=trialList.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[trialList[i],trialList[j]]=[trialList[j],trialList[i]];}
 
-let participantData = {};
-let recordings = [];
-let mr, chunks=[];
-let currentTrial = 0;
+let participantData={}, recordings=[], mr, chunks=[], currentTrial=0;
 
-async function startRec(){
-  const s = await navigator.mediaDevices.getUserMedia({audio:true});
-  chunks = [];
-  mr = new MediaRecorder(s);
-  mr.ondataavailable = e => chunks.push(e.data);
-  mr.start();
-}
-function stopRec(){
-  return new Promise(res=>{
-    mr.onstop = () => res(new Blob(chunks,{type:"audio/webm"}));
-    mr.stop();
-    mr.stream.getTracks().forEach(t=>t.stop());
-  });
-}
-function toB64(blob){
-  return new Promise(res=>{const r=new FileReader();r.onloadend=()=>res(r.result);r.readAsDataURL(blob);});
-}
+async function startRec(){const s=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mr=new MediaRecorder(s);mr.ondataavailable=e=>chunks.push(e.data);mr.start();}
+function stopRec(){return new Promise(res=>{mr.onstop=()=>res(new Blob(chunks,{type:"audio/webm"}));mr.stop();mr.stream.getTracks().forEach(t=>t.stop());});}
+function toB64(blob){return new Promise(res=>{const r=new FileReader();r.onloadend=()=>res(r.result);r.readAsDataURL(blob);});}
 
 function showWelcome(){
-  app.innerHTML = `
+  app.innerHTML=`
     <h2>Shadowing Experiment<br>跟讀實驗</h2>
-    <p>You will hear passages in <b>English</b> and <b>Mandarin</b> at different speeds.<br>
-    您將聽到英文和普通話段落，速度不同。</p>
-    <p>Please <b>repeat aloud as you hear it</b> (simultaneously).<br>
-    請在聽到的同時立即大聲跟讀。</p>
-    <p style="color:#888;font-size:13px">Use Chrome or Edge browser · 請用 Chrome 或 Edge</p>
-    <button class="btn" onclick="showForm()">Begin / 開始</button>
-  `;
+    <p>You will hear passages in <b>English</b> and <b>Mandarin</b>.<br>您將聽到英文和普通話段落。</p>
+    <p>Please <b>repeat aloud as you hear it</b> (simultaneously).<br>請在聽到的同時立即大聲跟讀。</p>
+    <p style="color:#888;font-size:13px">Use Chrome or Edge · 請用 Chrome 或 Edge 瀏覽器</p>
+    <button class="btn" onclick="showForm()">Begin / 開始</button>`;
 }
 
 function showForm(){
-  app.innerHTML = `
-    <h2>Background Information / 基本資料</h2>
-    <label>Participant ID (initials + birth month, e.g. AL03)</label>
-    <input id="pid" placeholder="e.g. AL03" required>
+  app.innerHTML=`
+    <h2>Background / 基本資料</h2>
+    <label>Participant ID (initials + birth month e.g. AL03)</label>
+    <input id="pid" placeholder="e.g. AL03">
     <label>L1 / 母語</label>
-    <input id="l1" placeholder="e.g. Mandarin" required>
+    <input id="l1" placeholder="e.g. Mandarin">
     <label>Years studying English / 學英文幾年</label>
     <input id="yrs" type="number" placeholder="e.g. 10">
-    <label>English listening self-rating / 英文聽力自評 (1=beginner, 7=native-like)</label>
-    <input id="prof" type="number" min="1" max="7" placeholder="1-7">
+    <label>English listening 1–7 (1=beginner, 7=native-like) / 英文聽力自評</label>
+    <input id="prof" type="number" min="1" max="7" placeholder="1–7">
     <br>
-    <button class="btn" onclick="saveBg()">Next / 下一步</button>
-  `;
+    <button class="btn" onclick="saveBg()">Next / 下一步</button>`;
 }
 
 function saveBg(){
-  const pid = document.getElementById('pid').value.trim();
+  const pid=document.getElementById('pid').value.trim();
   if(!pid){alert('Please enter participant ID');return;}
-  participantData = {
-    participant: pid,
-    L1: document.getElementById('l1').value,
-    years_eng: document.getElementById('yrs').value,
-    eng_prof: document.getElementById('prof').value,
-  };
+  participantData={participant:pid,L1:document.getElementById('l1').value,years_eng:document.getElementById('yrs').value,eng_prof:document.getElementById('prof').value};
   showMicTest();
 }
 
 async function showMicTest(){
-  app.innerHTML = `
-    <h2>Microphone Test / 麥克風測試</h2>
+  app.innerHTML=`
+    <h2>Microphone / 麥克風</h2>
     <p>Click to enable your microphone.<br>點擊啟用麥克風。</p>
-    <button class="btn" id="micbtn" onclick="testMic()">Enable Microphone / 啟用麥克風</button>
-  `;
+    <button class="btn" onclick="testMic()">Enable / 啟用</button>`;
 }
 
 async function testMic(){
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({audio:true});
-    s.getTracks().forEach(t=>t.stop());
-    showReady();
-  } catch(e) {
-    alert('Microphone access denied. Please allow microphone and refresh the page.\n請允許麥克風權限後重新整理頁面。');
-  }
-}
-
-function showReady(){
-  currentTrial = 0;
-  showTrialReady();
+  try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop());currentTrial=0;showTrialReady();}
+  catch(e){alert('Please allow microphone and refresh.\n請允許麥克風後重新整理。');}
 }
 
 function showTrialReady(){
-  if(currentTrial >= trialList.length){
-    showEnd();
-    return;
-  }
-  const t = trialList[currentTrial];
-  const cls = t.language==="English"?"eng":"mand";
-  app.innerHTML = `
+  if(currentTrial>=trialList.length){showEnd();return;}
+  const t=trialList[currentTrial];
+  const cls=t.language==="English"?"eng":"mand";
+  app.innerHTML=`
     <p class="progress">Trial ${currentTrial+1} / ${trialList.length}</p>
-    <span class="lang-tag ${cls}">${t.language} — ${t.speed}</span>
-    <h2>Ready to shadow?<br>準備好跟讀了嗎？</h2>
-    <p>When you click Start, the audio will play.<br>
-    Please repeat aloud simultaneously.<br>
-    點擊開始後，音頻將立即播放，請同步跟讀。</p>
-    <button class="btn" onclick="runTrial()">Start / 開始</button>
-  `;
+    <span class="lang-tag ${cls}">${t.language}</span>
+    <h2>Ready? / 準備好了嗎？</h2>
+    <p>When you click Start, the audio will play immediately.<br>
+    Please repeat aloud at the same time.<br>
+    點擊後音頻立即播放，請同步大聲跟讀。</p>
+    <button class="btn" onclick="runTrial()">Start / 開始</button>`;
 }
 
 async function runTrial(){
-  const t = trialList[currentTrial];
-  const cls = t.language==="English"?"eng":"mand";
-  app.innerHTML = `
+  const t=trialList[currentTrial];
+  const cls=t.language==="English"?"eng":"mand";
+  app.innerHTML=`
     <p class="progress">Trial ${currentTrial+1} / ${trialList.length}</p>
-    <span class="lang-tag ${cls}">${t.language} — ${t.speed}</span>
+    <span class="lang-tag ${cls}">${t.language}</span>
     <h2>🎙 Recording...</h2>
     <p class="rec">● 錄音中，請跟讀...</p>
-    <p style="color:#888;font-size:13px">Audio is playing. Please shadow it aloud.<br>音頻播放中，請大聲跟讀。</p>
-  `;
+    <p style="color:#888;font-size:13px">Shadow the audio aloud / 請大聲跟讀音頻</p>`;
   await startRec();
-  const audio = new Audio(t.file);
+  const audio=new Audio(t.file);
   audio.play();
-  audio.onended = async function(){
+  audio.onended=async function(){
     setTimeout(async function(){
-      const blob = await stopRec();
-      const data = await toB64(blob);
-      recordings.push({
-        trial: currentTrial+1,
-        language: t.language,
-        passage: t.passage,
-        speed: t.speed,
-        audio: data
-      });
-      app.innerHTML = `<p class="green">✓ Recorded / 已錄音</p>`;
-      setTimeout(()=>{
-        currentTrial++;
-        showTrialReady();
-      }, 800);
-    }, 3000);
+      const blob=await stopRec();
+      const data=await toB64(blob);
+      recordings.push({trial:currentTrial+1,language:t.language,passage:t.passage,speed:t.speed,audio:data});
+      app.innerHTML=`<p class="green">✓ Recorded / 已錄音</p>`;
+      setTimeout(()=>{currentTrial++;showTrialReady();},800);
+    },3000);
   };
 }
 
 function showEnd(){
-  app.innerHTML = `
+  app.innerHTML=`
     <h2>Thank you! / 謝謝！</h2>
-    <p>You have completed all ${trialList.length} trials.<br>
-    您已完成所有 ${trialList.length} 個試驗。</p>
-    <p>Click below to download your data and send it to the researcher.<br>
-    請點擊下載數據後傳給研究者。</p>
-    <button class="btn" onclick="downloadData()">Download Data / 下載數據</button>
-  `;
+    <p>All ${trialList.length} trials completed.<br>已完成所有 ${trialList.length} 個試驗。</p>
+    <p>Click to download your data and send to the researcher.<br>請下載數據後傳給研究者。</p>
+    <button class="btn" onclick="downloadData()">Download Data / 下載數據</button>`;
 }
 
 function downloadData(){
-  const output = Object.assign({}, participantData, {trials: recordings});
-  const blob = new Blob([JSON.stringify(output,null,2)],{type:"application/json"});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `shadowing_${participantData.participant}_${Date.now()}.json`;
-  a.click();
-  app.innerHTML = `<p class="green">✓ Data downloaded! Please send the file to the researcher.<br>數據已下載！請將檔案傳給研究者。</p>`;
+  const output=Object.assign({},participantData,{trials:recordings});
+  const blob=new Blob([JSON.stringify(output,null,2)],{type:"application/json"});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`shadowing_${participantData.participant}_${Date.now()}.json`;a.click();
+  app.innerHTML=`<p class="green">✓ Downloaded! Send the file to the researcher.<br>已下載！請將檔案傳給研究者。</p>`;
 }
 
+const app=document.getElementById('app');
 showWelcome();
 </script>
 </body>
